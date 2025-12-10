@@ -34,7 +34,7 @@ git clone git@github.com:domdomegg/gcp-github-secrets.git
 cd gcp-github-secrets
 
 # Edit setup.sh to set your project ID and allowed repos
-vim setup.sh
+nano setup.sh
 
 # Run the setup script
 ./setup.sh

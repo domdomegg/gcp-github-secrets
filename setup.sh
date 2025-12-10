@@ -41,6 +41,7 @@ if ! gcloud iam workload-identity-pools providers describe "$PROVIDER_ID" --work
         --display-name="GitHub" \
         --description="GitHub Actions OIDC provider" \
         --attribute-mapping="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner" \
+        --attribute-condition="assertion.repository_owner != ''" \
         --issuer-uri="https://token.actions.githubusercontent.com" \
         --project="$PROJECT_ID"
 fi
