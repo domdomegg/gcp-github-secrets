@@ -25,14 +25,7 @@ Click "Fork" on GitHub to create your own copy.
 
 - [Pulumi CLI](https://www.pulumi.com/docs/install/)
 - [gcloud CLI](https://cloud.google.com/sdk/docs/install) (authenticated)
-- A GCP project with these APIs enabled:
-  - IAM Service Account Credentials API
-  - Secret Manager API
-  - Cloud Resource Manager API
-
-```bash
-gcloud services enable iamcredentials.googleapis.com secretmanager.googleapis.com cloudresourcemanager.googleapis.com
-```
+- A GCP project
 
 ### 3. Configure
 

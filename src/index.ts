@@ -13,13 +13,30 @@ const resourcePrefix = config.get('resource-prefix') ?? 'github-secrets';
 // Secrets to store (pass via `pulumi config set --secret`)
 const secrets = config.requireSecretObject<Record<string, string>>('secrets');
 
+// Enable required GCP APIs
+const iamCredentialsApi = new gcp.projects.Service('iam-credentials-api', {
+	project: projectId,
+	service: 'iamcredentials.googleapis.com',
+});
+
+const secretManagerApi = new gcp.projects.Service('secret-manager-api', {
+	project: projectId,
+	service: 'secretmanager.googleapis.com',
+});
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const cloudResourceManagerApi = new gcp.projects.Service('cloud-resource-manager-api', {
+	project: projectId,
+	service: 'cloudresourcemanager.googleapis.com',
+});
+
 // Create workload identity pool
 const pool = new gcp.iam.WorkloadIdentityPool('pool', {
 	project: projectId,
 	workloadIdentityPoolId: `${resourcePrefix}-pool`,
 	displayName: 'GitHub Actions',
 	description: 'Workload identity pool for GitHub Actions OIDC',
-});
+}, {dependsOn: [iamCredentialsApi]});
 
 // Create OIDC provider for GitHub
 const provider = new gcp.iam.WorkloadIdentityPoolProvider('provider', {
@@ -80,7 +97,7 @@ secrets.apply((secretsObj) => {
 			replication: {
 				auto: {},
 			},
-		});
+		}, {dependsOn: [secretManagerApi]});
 
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const _version = new gcp.secretmanager.SecretVersion(`secret-${secretName}-version`, {
