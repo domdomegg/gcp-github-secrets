@@ -4,9 +4,6 @@ inputs:
   workload_identity_provider:
     description: 'The full workload identity provider resource name'
     required: true
-  service_account:
-    description: 'The service account email to impersonate'
-    required: true
   secrets:
     description: 'Newline-separated list of secrets to fetch in format: SECRET_NAME:output_name or just SECRET_NAME'
     required: true
@@ -23,7 +20,6 @@ runs:
       uses: google-github-actions/auth@v2
       with:
         workload_identity_provider: ${{ inputs.workload_identity_provider }}
-        service_account: ${{ inputs.service_account }}
 
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v2

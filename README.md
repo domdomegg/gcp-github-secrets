@@ -14,9 +14,7 @@ NPM now requires short-lived tokens (90 days max). If you have many repositories
 
 ## The solution
 
-This repo contains a bash script that sets up:
-- GCP Workload Identity Federation for GitHub Actions
-- A service account with Secret Manager access
+This repo contains a bash script that sets up GCP Workload Identity Federation for GitHub Actions, granting your repos direct access to Secret Manager (no service account needed).
 
 Once deployed, your workflows authenticate via OIDC (no static secrets), and you only need to rotate the actual token in one place (GCP Secret Manager).
 
@@ -40,7 +38,7 @@ nano setup.sh
 ./setup.sh
 ```
 
-The script will output the values you need for your GitHub Actions workflows.
+The script will output the workload identity provider value you need for your GitHub Actions workflows.
 
 ### 3. Add your secrets to GCP
 
@@ -65,13 +63,12 @@ jobs:
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: 'projects/123456789/locations/global/workloadIdentityPools/github-secrets-pool/providers/github-secrets-github'
-          service_account: 'github-secrets-reader@gcp-github-secrets.iam.gserviceaccount.com'
 
       - uses: google-github-actions/setup-gcloud@v2
 
       - name: Get NPM token
         run: |
-          NPM_TOKEN=$(gcloud secrets versions access latest --secret=npm-token)
+          NPM_TOKEN=$(gcloud secrets versions access latest --secret=npm-token --project=gcp-github-secrets)
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
 
       - run: npm publish
@@ -84,7 +81,7 @@ Or use the included composite action:
         id: secrets
         with:
           workload_identity_provider: 'projects/123456789/locations/global/workloadIdentityPools/github-secrets-pool/providers/github-secrets-github'
-          service_account: 'github-secrets-reader@gcp-github-secrets.iam.gserviceaccount.com'
+          project_id: gcp-github-secrets
           secrets: |
             npm-token
 
