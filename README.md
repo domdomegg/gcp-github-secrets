@@ -8,50 +8,67 @@ NPM (and other services) now require short-lived tokens (90 days max). If you ha
 
 ## The solution
 
-This package provides:
-1. A **Pulumi component** to set up GCP workload identity federation + Secret Manager
-2. A **GitHub Action** to fetch secrets in your workflows
+This repo is a Pulumi stack that sets up:
+- GCP Workload Identity Federation for GitHub Actions
+- A service account with Secret Manager access
+- Your secrets in GCP Secret Manager
 
-Once set up, your workflows authenticate via OIDC (no static secrets), and you only need to rotate the actual NPM token in one place (GCP Secret Manager).
+Once deployed, your workflows authenticate via OIDC (no static secrets), and you only need to rotate the actual token in one place (GCP Secret Manager).
 
 ## Setup
 
-### 1. Install the Pulumi package
+### 1. Fork this repo
+
+Click "Fork" on GitHub to create your own copy.
+
+### 2. Prerequisites
+
+- [Pulumi CLI](https://www.pulumi.com/docs/install/)
+- [gcloud CLI](https://cloud.google.com/sdk/docs/install) (authenticated)
+- A GCP project with these APIs enabled:
+  - IAM Service Account Credentials API
+  - Secret Manager API
+  - Cloud Resource Manager API
 
 ```bash
-npm install gcp-github-secrets
+gcloud services enable iamcredentials.googleapis.com secretmanager.googleapis.com cloudresourcemanager.googleapis.com
 ```
 
-### 2. Add to your Pulumi stack
+### 3. Configure
 
-```typescript
-import { GcpGithubSecrets } from 'gcp-github-secrets';
+```bash
+# Clone your fork
+git clone git@github.com:YOUR_USERNAME/gcp-github-secrets.git
+cd gcp-github-secrets
 
-const secrets = new GcpGithubSecrets('my-secrets', {
-  projectId: 'my-gcp-project',
-  allowedRepositories: [
-    'myorg/*',              // All repos in an org
-    'myuser/specific-repo', // Or specific repos
-  ],
-  secrets: {
-    'npm-token': process.env.NPM_TOKEN!,
-  },
-});
+# Install dependencies
+npm install
 
-// Export these for use in GitHub Actions
-export const workloadIdentityProvider = secrets.workloadIdentityProvider;
-export const serviceAccountEmail = secrets.serviceAccountEmail;
+# Create a Pulumi stack
+pulumi stack init prod
+
+# Set required config
+pulumi config set gcp-project-id YOUR_GCP_PROJECT_ID
+pulumi config set allowed-repositories '["your-username/*"]'  # or specific repos
+
+# Set your secrets (stored encrypted)
+pulumi config set --secret secrets '{"npm-token": "npm_xxxx"}'
+
+# Set GCP region (optional)
+pulumi config set gcp:region us-central1
 ```
 
-### 3. Deploy
+### 4. Deploy
 
 ```bash
 pulumi up
 ```
 
-Note the outputs - you'll need `workloadIdentityProvider` and `serviceAccountEmail` for your workflows.
+Note the outputs:
+- `workloadIdentityProvider` - use this in your GitHub Actions
+- `serviceAccountEmail` - use this in your GitHub Actions
 
-### 4. Use in GitHub Actions
+### 5. Use in GitHub Actions
 
 ```yaml
 jobs:
@@ -64,18 +81,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: domdomegg/gcp-github-secrets/action@v1
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/123456789/locations/global/workloadIdentityPools/github-secrets-pool/providers/github-secrets-github'
+          service_account: 'github-secrets-reader@your-project.iam.gserviceaccount.com'
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Get NPM token
+        run: |
+          NPM_TOKEN=$(gcloud secrets versions access latest --secret=npm-token)
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
+
+      - run: npm publish
+```
+
+Or use the included composite action:
+
+```yaml
+      - uses: YOUR_USERNAME/gcp-github-secrets/action@master
         id: secrets
         with:
-          workload_identity_provider: 'projects/123456/locations/global/workloadIdentityPools/github-secrets-pool/providers/github-secrets-github'
-          service_account: 'github-secrets-reader@my-project.iam.gserviceaccount.com'
+          workload_identity_provider: 'projects/123456789/locations/global/workloadIdentityPools/github-secrets-pool/providers/github-secrets-github'
+          service_account: 'github-secrets-reader@your-project.iam.gserviceaccount.com'
           secrets: |
             npm-token
 
-      - name: Setup npmrc
-        run: echo "//registry.npmjs.org/:_authToken=${{ steps.secrets.outputs.npm-token }}" > ~/.npmrc
-
-      - run: npm publish
+      - run: echo "//registry.npmjs.org/:_authToken=${{ steps.secrets.outputs.npm-token }}" >> ~/.npmrc
 ```
 
 ## Rotating secrets
@@ -88,60 +120,15 @@ echo -n "npm_NEW_TOKEN" | gcloud secrets versions add npm-token --data-file=-
 
 No changes needed in any of your repositories.
 
-## API
+## Configuration reference
 
-### Pulumi Component: `GcpGithubSecrets`
+| Config Key | Required | Description |
+|------------|----------|-------------|
+| `gcp-project-id` | Yes | Your GCP project ID |
+| `allowed-repositories` | Yes | JSON array of repos (`["owner/repo"]` or `["owner/*"]`) |
+| `secrets` | Yes | JSON object of secrets (`{"name": "value"}`) - use `--secret` flag |
+| `resource-prefix` | No | Prefix for GCP resources (default: `github-secrets`) |
 
-#### Inputs
+## License
 
-| Name | Type | Description |
-|------|------|-------------|
-| `projectId` | `string` | GCP project ID |
-| `allowedRepositories` | `string[]` | Repos allowed to access secrets (`owner/repo` or `owner/*`) |
-| `secrets` | `Record<string, string>` | Map of secret names to values |
-| `resourcePrefix` | `string` | Optional prefix for resources (default: `github-secrets`) |
-
-#### Outputs
-
-| Name | Type | Description |
-|------|------|-------------|
-| `workloadIdentityProvider` | `string` | Full provider name for GitHub Actions |
-| `serviceAccountEmail` | `string` | Service account email for GitHub Actions |
-| `workloadIdentityPoolId` | `string` | The pool ID |
-| `workloadIdentityProviderId` | `string` | The provider ID |
-| `secretNames` | `Record<string, string>` | Map of secret names |
-
-### GitHub Action
-
-#### Inputs
-
-| Name | Required | Description |
-|------|----------|-------------|
-| `workload_identity_provider` | Yes | Full workload identity provider name |
-| `service_account` | Yes | Service account email |
-| `secrets` | Yes | Newline-separated secrets (`SECRET_NAME` or `SECRET_NAME:output_name`) |
-| `project_id` | No | GCP project ID |
-
-#### Outputs
-
-Each secret is available as an output with the name specified (or the secret name if not specified).
-
-## Contributing
-
-Pull requests are welcomed on GitHub! To get started:
-
-1. Install Git and Node.js
-2. Clone the repository
-3. Install dependencies with `npm install`
-4. Run `npm run test` to run tests
-5. Build with `npm run build`
-
-## Releases
-
-Versions follow the [semantic versioning spec](https://semver.org/).
-
-To release:
-
-1. Use `npm version <major | minor | patch>` to bump the version
-2. Run `git push --follow-tags` to push with tags
-3. Wait for GitHub Actions to publish to the NPM registry.
+MIT
