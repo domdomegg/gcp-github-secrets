@@ -4,7 +4,14 @@ Use GCP Secret Manager with GitHub Actions OIDC - no more rotating tokens in eve
 
 ## The problem
 
-NPM (and other services) now require short-lived tokens (90 days max). If you have many repositories, rotating tokens in each one is painful. GitHub Actions OIDC lets you authenticate without static secrets, but setting it up with GCP is fiddly.
+NPM now requires short-lived tokens (90 days max). If you have many repositories, rotating tokens in each one is painful.
+
+**Why not use GitHub organization secrets?** If your repos are in a GitHub organization, you can set a secret once and share it across all repos. But personal accounts don't have this feature - you'd need to update each repo individually.
+
+**Why not use NPM's OIDC trusted publishing?** NPM supports OIDC, but it has limitations:
+- You can't publish *new* packages with OIDC - the first publish must use a token
+- There's no API to configure it - you have to click through the npm website for each package
+- If you have many packages, this is tedious to set up and maintain
 
 ## The solution
 
