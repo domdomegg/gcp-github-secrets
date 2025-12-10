@@ -1,6 +1,0 @@
-name: gcp-github-secrets
-runtime:
-  name: nodejs
-  options:
-    packagemanager: npm
-description: Use GCP Secret Manager with GitHub Actions OIDC
