@@ -14,7 +14,7 @@ NPM now requires short-lived tokens (90 days max). If you have many repositories
 
 ## The solution
 
-This repo contains a bash script that sets up GCP Workload Identity Federation for GitHub Actions, granting your repos direct access to Secret Manager (no service account needed).
+This repo contains a bash script that sets up GCP Workload Identity Federation for GitHub Actions, granting your repos direct access to Secret Manager.
 
 Once deployed, your workflows authenticate via OIDC (no static secrets), and you only need to rotate the actual token in one place (GCP Secret Manager).
 
@@ -23,6 +23,7 @@ Once deployed, your workflows authenticate via OIDC (no static secrets), and you
 ### 1. Prerequisites
 
 - [gcloud CLI](https://cloud.google.com/sdk/docs/install) (authenticated via `gcloud auth login`)
+- A GCP billing account (Secret Manager has a free tier of 10k accesses/month)
 
 ### 2. Configure and deploy
 
@@ -31,7 +32,7 @@ Once deployed, your workflows authenticate via OIDC (no static secrets), and you
 git clone git@github.com:domdomegg/gcp-github-secrets.git
 cd gcp-github-secrets
 
-# Edit setup.sh to set your project ID and allowed repos
+# Edit setup.sh to set your project ID and repo owner
 nano setup.sh
 
 # Run the setup script
@@ -106,8 +107,18 @@ Edit these variables at the top of `setup.sh`:
 |----------|-------------|
 | `PROJECT_ID` | Your GCP project ID |
 | `PROJECT_NAME` | Display name for the project |
-| `ALLOWED_REPOS` | Comma-separated repos (`owner/repo` or `owner/*`) |
+| `REPO_OWNER` | GitHub username or org - only repos owned by this account can access secrets |
 | `RESOURCE_PREFIX` | Prefix for GCP resources (default: `github-secrets`) |
+
+## Security
+
+The attribute condition restricts access to repos owned by `REPO_OWNER`. This matches GitHub Actions secrets behavior - forks and other users' repos cannot access the secrets.
+
+For stricter security, you can modify `ATTRIBUTE_CONDITION` in `setup.sh` to also restrict by ref:
+
+```bash
+ATTRIBUTE_CONDITION="assertion.repository_owner == '${REPO_OWNER}' && (assertion.ref.startsWith('refs/tags/') || assertion.ref == 'refs/heads/main')"
+```
 
 ## Contributing
 

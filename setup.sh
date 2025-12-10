@@ -4,12 +4,18 @@ set -euo pipefail
 # Configuration - edit these values
 PROJECT_ID="gcp-github-secrets"
 PROJECT_NAME="GitHub Secrets"
-ALLOWED_REPOS="domdomegg/*"  # comma-separated, e.g. "owner/repo,owner/*"
+REPO_OWNER="domdomegg"
 RESOURCE_PREFIX="github-secrets"
 
 # Derived values
 POOL_ID="${RESOURCE_PREFIX}-pool"
 PROVIDER_ID="${RESOURCE_PREFIX}-github"
+
+# Attribute condition - restricts which GitHub OIDC tokens GCP accepts
+# This matches GitHub Actions secrets behavior: only repos owned by REPO_OWNER
+# For stricter security, you could add ref restrictions, e.g.:
+#   && (assertion.ref.startsWith('refs/tags/') || assertion.ref == 'refs/heads/master' || assertion.ref == 'refs/heads/main')
+ATTRIBUTE_CONDITION="assertion.repository_owner == '${REPO_OWNER}'"
 
 echo "==> Creating GCP project (if it doesn't exist)..."
 if ! gcloud projects describe "$PROJECT_ID" &>/dev/null; then
@@ -39,8 +45,8 @@ if ! gcloud iam workload-identity-pools providers describe "$PROVIDER_ID" --work
         --workload-identity-pool="$POOL_ID" \
         --display-name="GitHub" \
         --description="GitHub Actions OIDC provider" \
-        --attribute-mapping="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner" \
-        --attribute-condition="assertion.repository_owner == 'domdomegg'" \
+        --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner" \
+        --attribute-condition="$ATTRIBUTE_CONDITION" \
         --issuer-uri="https://token.actions.githubusercontent.com" \
         --project="$PROJECT_ID"
 fi
@@ -48,17 +54,12 @@ fi
 echo "==> Getting project number..."
 PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format="value(projectNumber)")
 
-echo "==> Granting secret accessor role to allowed repos..."
-IFS=',' read -ra REPOS <<< "$ALLOWED_REPOS"
-for repo in "${REPOS[@]}"; do
-    repo=$(echo "$repo" | xargs)  # trim whitespace
-    echo "    Adding: $repo"
-    gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-        --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL_ID}/attribute.repository/${repo}" \
-        --role="roles/secretmanager.secretAccessor" \
-        --condition=None \
-        --quiet
-done
+echo "==> Granting secret accessor role to pool..."
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+    --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL_ID}/*" \
+    --role="roles/secretmanager.secretAccessor" \
+    --condition=None \
+    --quiet
 
 echo ""
 echo "==> Setup complete!"
