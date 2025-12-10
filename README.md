@@ -129,6 +129,11 @@ No changes needed in any of your repositories.
 | `secrets` | Yes | JSON object of secrets (`{"name": "value"}`) - use `--secret` flag |
 | `resource-prefix` | No | Prefix for GCP resources (default: `github-secrets`) |
 
-## License
+## Contributing
 
-MIT
+Pull requests are welcomed on GitHub! To get started:
+
+1. Install Git and Node.js
+2. Clone the repository
+3. Install dependencies with `npm install`
+4. Build with `npm run build`
