@@ -75,20 +75,6 @@ jobs:
       - run: npm publish
 ```
 
-Or use the included composite action:
-
-```yaml
-      - uses: domdomegg/gcp-github-secrets/action@master
-        id: secrets
-        with:
-          workload_identity_provider: 'projects/123456789/locations/global/workloadIdentityPools/github-secrets-pool/providers/github-secrets-github'
-          project_id: gcp-github-secrets
-          secrets: |
-            npm-token
-
-      - run: echo "//registry.npmjs.org/:_authToken=${{ steps.secrets.outputs.npm-token }}" >> ~/.npmrc
-```
-
 ## Rotating secrets
 
 When your NPM token expires, just update it in GCP:
@@ -126,4 +112,4 @@ Pull requests are welcomed on GitHub! To get started:
 
 1. Install Git
 2. Clone the repository
-3. Make your changes to `setup.sh` or `action/`
+3. Make your changes to `setup.sh`
