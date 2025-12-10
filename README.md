@@ -24,8 +24,7 @@ Click "Fork" on GitHub to create your own copy.
 ### 2. Prerequisites
 
 - [Pulumi CLI](https://www.pulumi.com/docs/install/)
-- [gcloud CLI](https://cloud.google.com/sdk/docs/install) (authenticated)
-- A GCP project
+- [gcloud CLI](https://cloud.google.com/sdk/docs/install) (authenticated via `gcloud auth login`)
 
 ### 3. Configure
 
@@ -37,11 +36,14 @@ cd gcp-github-secrets
 # Install dependencies
 npm install
 
+# Create a GCP project (or use an existing one)
+gcloud projects create my-github-secrets --name="GitHub Secrets"
+
 # Create a Pulumi stack
 pulumi stack init prod
 
 # Set required config
-pulumi config set gcp-project-id YOUR_GCP_PROJECT_ID
+pulumi config set gcp-project-id my-github-secrets  # use your project ID
 pulumi config set allowed-repositories '["your-username/*"]'  # or specific repos
 
 # Set your secrets (stored encrypted)
