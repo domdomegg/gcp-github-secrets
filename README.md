@@ -61,6 +61,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          registry-url: https://registry.npmjs.org/
+
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: 'projects/123456789/locations/global/workloadIdentityPools/github-secrets-pool/providers/github-secrets-github'
@@ -68,11 +73,15 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v2
 
       - name: Get NPM token
+        id: npm-token
         run: |
-          NPM_TOKEN=$(gcloud secrets versions access latest --secret=npm-token --project=gcp-github-secrets)
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
+          token=$(gcloud secrets versions access latest --secret=npm-token --project=gcp-github-secrets)
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
 
       - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ steps.npm-token.outputs.token }}
 ```
 
 ## Rotating secrets
